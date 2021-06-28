@@ -1,10 +1,9 @@
 import functools
 import sys
 import threading
-import time
 
 from PyQt5.QtGui import QColor
-from PyQt5.QtWidgets import QApplication, QMainWindow, QErrorMessage, QMessageBox
+from PyQt5.QtWidgets import QApplication, QMainWindow
 from PyQt5.QtCore import QTimer, QVariantAnimation, QAbstractAnimation
 from design import Ui_MainWindow
 from robot import MyRobot
@@ -20,7 +19,8 @@ I guess, there is no implementation at robot side too.
 class MainWindow(Ui_MainWindow):
     def __init__(self, form):
         self.setupUi(form)
-        self.robot = None
+        self.robots = {}
+        self.n = 0
 
         R, z, A, B, C, D, left, right, V, max_length, com = read_config()
         self.error_msg = "No error yet."
@@ -72,7 +72,8 @@ class MainWindow(Ui_MainWindow):
 
     def change_right_speed(self):
         value = self.right_speed_input.value()
-        self.robot.recalculate_speed_right(value)
+        for robot in self.robots.values():
+            robot.recalculate_speed_right(value)
         self.apply_color_animation(
             self.right_speed_btn,
             QColor("green"),
@@ -82,7 +83,8 @@ class MainWindow(Ui_MainWindow):
 
     def change_left_speed(self):
         value = self.left_speed_input.value()
-        self.robot.recalculate_speed_left(value)
+        for robot in self.robots.values():
+            robot.recalculate_speed_left(value)
         self.apply_color_animation(
             self.left_speed_btn,
             QColor("green"),
@@ -91,31 +93,39 @@ class MainWindow(Ui_MainWindow):
         )
 
     def save(self):
-        self.robot.save_state()
+        self.robots[0].clear_save()
+        for robot in self.robots.values():
+            robot.save_state()
 
     def load(self):
-        if self.robot.stop == 1:
-            self.robot.recover_state()
+        for robot in self.robots.values():
+            if robot.stop == 1:
+                robot.recover_state()
 
     def calibrate(self):
-        if self.robot is not None:
-            if self.robot.stop == 1:
-                self.robot.clear_log()
-                self.calibr_btn.setText("Calibrating...")
-                self.statusbar.clearMessage()
-                self.run = threading.Thread(target=self.robot.calibrate, args=(self.finish_calibrate, self.error))
-                self.run.daemon = True
-                self.run.start()
+        self.statusbar.clearMessage()
+        self.calibr_btn.setText("Calibrating...")
+        runs = [0, 0, 0, 0]
+        for i in range(self.n):
+            robot = list(self.robots.values())[i]
+            if robot.stop == 1:
+                robot.clear_log()
+                runs[i] = threading.Thread(target=robot.calibrate, args=(self.finish_calibrate, self.error))
+                runs[i].daemon = True
+                runs[i].start()
 
     def run_program(self):
-        if self.robot.stop == 1:
-            self.timer.start(100)
-            self.run_btn.setText("Running...")
-            self.robot.clear_log()
-            self.statusbar.clearMessage()
-            self.run = threading.Thread(target=self.robot.inf_loop, args=(self.finish_run, self.error))
-            self.run.daemon = True
-            self.run.start()
+        self.run_btn.setText("Running...")
+        self.statusbar.clearMessage()
+        runs = [0, 0, 0, 0]
+        for i in range(self.n):
+            robot = list(self.robots.values())[i]
+            if robot.stop == 1:
+                self.timer.start(100)
+                robot.clear_log()
+                runs[i] = threading.Thread(target=robot.inf_loop, args=(self.finish_run, self.error))
+                runs[i].daemon = True
+                runs[i].start()
 
     def finish_setup_phase(self):
         self.apply_color_animation(
@@ -152,18 +162,23 @@ class MainWindow(Ui_MainWindow):
     def stop_program(self):
         self.timer.stop()
         self.s = 0
-        self.robot.force_stop()
+        for robot in self.robots.values():
+            robot.force_stop()
 
     def set_phase(self):
         self.statusbar.clearMessage()
         is_right_checked = self.right_type_of_leg_radio.isChecked()
         number_of_leg = int(self.number_of_leg_input.text())
         number_of_phase = int(self.number_of_phase_input.text())
+        robot = int(self.robot_id_2_input.text())
         location = self.location_input.value()
-        self.robot.set_target_1_leg(is_right_checked, number_of_leg, number_of_phase, location, self.finish_setup_phase, self.error)
+        self.robots[robot].set_target_1_leg(is_right_checked, number_of_leg, number_of_phase, location, self.finish_setup_phase, self.error)
 
     def error(self, error_msg):
         self.statusbar.clearMessage()
+        self.timer.stop()
+        self.s = 0
+        self.stop_program()
         self.statusbar.showMessage(error_msg)
 
     def helper_function(self, widget, color):
@@ -181,13 +196,16 @@ class MainWindow(Ui_MainWindow):
         anim.start(QAbstractAnimation.DeleteWhenStopped)
 
     def run_phases(self):
-        if self.robot.stop == 1:
-            self.robot.clear_log()
-            self.run_phases_btn.setText("Запускаю...")
-            self.statusbar.clearMessage()
-            self.run = threading.Thread(target=self.robot.before_start_init, args=(self.finish_before_start, self.error))
-            self.run.daemon = True
-            self.run.start()
+        self.run_phases_btn.setText("Запускаю...")
+        self.statusbar.clearMessage()
+        runs = [0, 0, 0, 0]
+        for i in range(self.n):
+            robot = list(self.robots.values())[i]
+            if robot.stop == 1:
+                robot.clear_log()
+                runs[i] = threading.Thread(target=robot.before_start_init, args=(self.finish_before_start, self.error))
+                runs[i].daemon = True
+                runs[i].start()
 
     def update_config_values(self):
         self.config_submit_btn.setStyleSheet('background-color:red;')
@@ -196,6 +214,7 @@ class MainWindow(Ui_MainWindow):
         max_length = self.max_length_input.value()
         legs_right = eval(self.legs_right_input.text())
         legs_left = eval(self.legs_left_input.text())
+        number = self.robot_id_input.value()
         ax = self.ax_input.value()
         ay = self.ay_input.value()
         bx = self.bx_input.value()
@@ -218,8 +237,9 @@ class MainWindow(Ui_MainWindow):
             update_config("right", legs_right)
             update_config("com", com)
             V = read_speed()
-            self.robot = MyRobot(legs_left, legs_right, V, [[ax, ay], [bx, by], [cx, cy], [dx, dy]], distance_btw,
+            self.robots[number] = MyRobot(legs_left, legs_right, V, [[ax, ay], [bx, by], [cx, cy], [dx, dy]], distance_btw,
                                  wheel_radius, max_length, com)
+            self.n += 1
             self.apply_color_animation(
                 self.config_submit_btn,
                 QColor("green"),

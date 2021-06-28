@@ -34,11 +34,12 @@ class MyRobot:
         # stop is a lock for all the legs. If stop is 1, none of the legs are allowed to move.
         # keys is a list of locks for each leg.
         # speeds is a list of target speeds for legs.
+        self.port = port
         self.V = V
         self.left = []
         self.right = []
         self.legs = []
-        self.time_step = 0.05
+        self.time_step = 0.4
         self.stop = 1
         self.keys = []
         self.speeds = []
@@ -210,7 +211,7 @@ class MyRobot:
     # The log file has a structure of: time + \t + current_front;current_back;pos_x;pos_y (for every leg with \t in between them)
     def log_file(self, t):
         with open("log.txt", "a") as f:
-            f.write("%0.2f" % t)
+            f.write("%s\t%0.2f" % (self.port, t))
             for i in range(self.n):
                 f.write("\t")
                 leg = self.legs[i]
@@ -311,10 +312,13 @@ class MyRobot:
         self.legs[i].mode = mode
         self.legs[i].change_mode_1()
 
-    # Saves the state of all legs into save.txt. Angles, positions of motors, coordinates, phase, current time, A and B.
-    def save_state(self):
+    def clear_save(self):
         with open("save.txt", "w") as f:
             f.truncate()
+
+    # Saves the state of all legs into save.txt. Angles, positions of motors, coordinates, phase, current time, A and B.
+    def save_state(self):
+        with open("save.txt", "a") as f:
             for leg in self.legs:
                 leg.get_current_angle()
                 f.write(str(leg.front_id) + " ")
@@ -336,9 +340,10 @@ class MyRobot:
     def recover_state(self):
         dic = {}
         with open("save.txt", "r") as f:
-            for _ in range(self.n):
+            for _ in f:
                 motor_id, angleF, posF, angleB, posB, x, y, phase, t, ax, ay, bx, by, d = map(float, (f.readline()).split())
                 dic[motor_id] = [angleF, posF, angleB, posB, x, y, phase, t, ax, ay, bx, by, d]
+
             for leg in self.legs:
                 idF = leg.front_id
                 leg.angle_front, leg.prev_front, leg.angle_back, = dic[idF][0], dic[idF][1], dic[idF][2]

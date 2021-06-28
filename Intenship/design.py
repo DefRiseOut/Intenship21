@@ -159,7 +159,7 @@ class Ui_MainWindow(object):
         self.robot_id_2_label.setGeometry(QtCore.QRect(20, 420, 121, 22))
         self.robot_id_2_label.setObjectName("robot_id_2_label")
         self.robot_id_2_input = QtWidgets.QLineEdit(self.tab_before_start)
-        self.robot_id_2_input.setGeometry(QtCore.QRect(20, 4500, 80, 31))
+        self.robot_id_2_input.setGeometry(QtCore.QRect(20, 450, 80, 31))
         self.robot_id_2_input.setObjectName("robot_id_2_input")
         self.robot_id_2_input.setValidator(QIntValidator())        
         
@@ -179,7 +179,7 @@ class Ui_MainWindow(object):
         self.location_label.setGeometry(QtCore.QRect(190, 350, 191, 22))
         self.location_label.setObjectName("location_label")        
         self.phase_submit_btn = QtWidgets.QPushButton(self.tab_before_start)
-        self.phase_submit_btn.setGeometry(QtCore.QRect(90, 450, 110, 30))
+        self.phase_submit_btn.setGeometry(QtCore.QRect(90, 480, 110, 30))
         self.phase_submit_btn.setObjectName("phase_submit_btn")
         self.run_phases_btn = QtWidgets.QPushButton(self.tab_before_start)
         self.run_phases_btn.setGeometry(QtCore.QRect(410, 330, 191, 110))

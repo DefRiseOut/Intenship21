@@ -43,6 +43,12 @@ class MyRobot:
         self.stop = 1
         self.keys = []
         self.speeds = []
+
+        # Create a file "com3.txt" that will be used as log for this robot.
+        self.file = "log" + str(port[-1]).lower() + ".txt"
+        with open(self.file, "w") as f:
+            f.write("Start of the log.\n")
+
         # Connect and config all left legs.
         for leg in left_legs:
             temp_leg = LeftLeg(leg[0], leg[1], coord, d, V, R, self.time_step, max_L, port)
@@ -85,6 +91,9 @@ class MyRobot:
 
             # Variable for saving the difference in time between each step.
             step = self.time_step
+
+            # Count of log interactions. Clear log every 120 seconds.
+            k = 0
 
             # Cycle until robot is stopped
             while True:
@@ -135,7 +144,12 @@ class MyRobot:
 
                 # Write information onto the log.
                 if t > t_log + 1:
-                    self.log_file(t - t0)
+                    if k < 120:
+                        self.log_file(t - t0)
+                        k += 1
+                    else:
+                        self.clear_log()
+                        k = 0
                     t_log += 1
 
                 #  Sleep until next time_step. If time spent exceeded the time step, just
@@ -201,23 +215,20 @@ class MyRobot:
             return -1
 
     # A simple function to clear the log.txt file.
-    @staticmethod
-    def clear_log():
-        f = open("log.txt", "r+")
+    def clear_log(self):
+        f = open(self.file, "r+")
         f.truncate(0)
         f.close()
 
     # Function that writes currents from each leg and their position into the log file. Is called every 0.3 seconds in main cycle.
     # The log file has a structure of: time + \t + current_front;current_back;pos_x;pos_y (for every leg with \t in between them)
     def log_file(self, t):
-        with open("log.txt", "a") as f:
-            f.write("%s\t%0.2f" % (self.port, t))
+        with open(self.file, "a") as f:
+            f.write("%0.2f" % t)
             for i in range(self.n):
                 f.write("\t")
                 leg = self.legs[i]
-                curr1 = leg.front.read_register(263, 0, 3, signed=False)
-                curr2 = leg.back.read_register(263, 0, 3, signed=False)
-                f.write("%0.2f;%0.2f;%0.2f;%0.2f;%d;%d;%0.2f;%0.2f" % (leg.A[0], leg.A[1], leg.B[0], leg.B[1], curr1, curr2, leg.now_coord[0], leg.now_coord[1]))
+                f.write("%0.2f;%0.2f;%0.2f;%0.2f;%0.1f;%0.2f;%0.2f" % (leg.A[0], leg.A[1], leg.B[0], leg.B[1], leg.currents[-1], leg.now_coord[0], leg.now_coord[1]))
             f.write("\n")
 
     # A simple loop that is activated to move all the legs into their specified positions. Only moves legs which have mode 2.
@@ -787,12 +798,12 @@ class Leg:
 
             # Filter for 3 cm/s is different.
             if abs(self.V) < 0.025:
-                if now_c - old_c > abs(self.V*110) and now_c >= abs(self.V*425) and self.t > 0.06 / abs(self.V):
+                if now_c - old_c > abs(self.V*60) and now_c >= abs(self.V*215) and self.t > 0.06 / abs(self.V):
                     # When bottom is detected, return True.
                     print("Leg [%d, %d] bottom detected." % (self.front_id, self.back_id))
                     return True
             else:
-                if now_c - old_c > 5 and now_c >= 20 and self.t > 0.06 / abs(self.V):
+                if now_c - old_c > 2.5 and now_c >= 10 and self.t > 0.06 / abs(self.V):
                     # When bottom is detected, return True.
                     print("Leg [%d, %d] bottom detected." % (self.front_id, self.back_id))
                     return True
@@ -818,7 +829,8 @@ class Leg:
             # This filter does not really need scaling, because when stuff goes bad, it goes really bad. Currents can spike to around 60-70 when motors start pulling on each other.
             # Making this filter less sensitive will result in calibration being a bit more harmful for the legs (not the motors themselves, they will be fine).
             # Also note that self.V is not setup properly during calibration, so using scaling based on speed is not good.
-            if av > 55:
+
+            if av > 25:
 
                 # Delete the first element and return True.
                 self.currents = self.currents[1:]

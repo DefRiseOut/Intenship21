@@ -10,12 +10,6 @@ from robot import MyRobot
 from read_config import read_config, update_config, read_speed
 
 
-"""
-I do not implement functionality for the last tab yet (Run), because,
-I guess, there is no implementation at robot side too.
-"""
-
-
 class MainWindow(Ui_MainWindow):
     def __init__(self, form):
         self.setupUi(form)
@@ -93,7 +87,7 @@ class MainWindow(Ui_MainWindow):
         )
 
     def save(self):
-        self.robots[0].clear_save()
+        list(self.robots.values())[0].clear_save()
         for robot in self.robots.values():
             robot.save_state()
 
@@ -214,7 +208,7 @@ class MainWindow(Ui_MainWindow):
         max_length = self.max_length_input.value()
         legs_right = eval(self.legs_right_input.text())
         legs_left = eval(self.legs_left_input.text())
-        number = self.robot_id_input.value()
+        number = int(self.robot_id_input.text())
         ax = self.ax_input.value()
         ay = self.ay_input.value()
         bx = self.bx_input.value()
